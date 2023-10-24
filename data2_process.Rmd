@@ -1,0 +1,72 @@
+
+
+
+```{r}
+data = read.csv("AES_data.csv")
+
+# clean data
+clean_data <- subset(data, SEX != "Not Applicable")
+clean_data <- subset(clean_data, Age.Group.5Yr.Band != "Not Applicable")
+clean_data <- subset(clean_data, Ethnic.Group != "Not Applicable")
+#clean_data <- subset(clean_data, Location.Type.Division != "Not Applicable")
+clean_data <- clean_data[,c(-4,-8)]
+clean_data <- clean_data[clean_data$OOI.Exclusion!='',]
+clean_data <- clean_data[,-8]
+
+
+# class
+clean_data$class = -1
+clean_data$class[clean_data$OOI.Exclusion=='Court action'] = 0
+clean_data$class[clean_data$OOI.Exclusion=='No crime'] = 1
+
+clean_data <- subset(clean_data,  Ethnic.Group!= "Not Stated")
+clean_data <- subset(clean_data,  Age.Group.5Yr.Band!= "Not Specified")
+clean_data <- subset(clean_data,  SEX!= "Not Stated")
+
+df = clean_data[clean_data$class != -1,]
+```
+
+
+
+
+```{r}
+# df <- df[,-5]
+df$SEX <- as.factor(df$SEX)
+df$Ethnic.Group <- as.factor(df$Ethnic.Group)
+classify_age_group <- function(age_group) {
+  if (age_group %in% c('0 - 4 years inclusive', '5 - 9 years inclusive', '10 - 14 years inclusive', '15 - 19 years inclusive')) {
+    return('Teenagers')
+  } else if (age_group %in% c('20 - 24 years inclusive', '25 - 29 years inclusive', '30 - 34 years inclusive', '35 - 39 years inclusive')) {
+    return('Middle-aged-young')
+  } else if (age_group %in% c('40 - 44 years inclusive', '45 - 49 years inclusive', '50 - 54 years inclusive', '55 - 59 years inclusive')) {
+    return('Middle-aged-old')
+  } else if (age_group %in% c('60 - 64 years inclusive', '65 - 69 years inclusive', '70 - 74 years inclusive', '75 - 79 years inclusive', '80 years or over')) {
+    return('Elderly')
+  } else {
+    return('Unknown')
+  }
+}
+
+df$Age.Group.5Yr.Band <- sapply(df$Age.Group.5Yr.Band, classify_age_group)
+df$Age.Group.5Yr.Band <- as.factor(df$Age.Group.5Yr.Band)
+```
+
+
+
+
+```{r}
+output <- model.matrix(class~ SEX + Ethnic.Group - 1, data = df)
+Asi = as.integer(output[,3]==0 & output[,4]==0 & output[,5]==0 & output[,6]==0 & output[,7]==0)
+output <- cbind(output, Asi)
+
+output2 <- model.matrix(class~ Age.Group.5Yr.Band - 1, data = df)
+output <- cbind(output, output2)
+
+output <- cbind(output, df$class)
+fair <- as.data.frame(output)
+colnames(output)=c("Female","Male","European","Indian","Maori","Other Ethnicities","Pacific Island","Asian","Elderly"
+                    ,"Middle-aged-old","Middle-aged-young","Teenagers","class")
+write.csv(output, file = "output_data2.csv", row.names = FALSE)
+```
+
+
